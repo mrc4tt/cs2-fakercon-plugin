@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
 using System.Text;
 using System.Timers;
+using System.Text.Json;
 
 namespace FakeRconPlugin;
 
@@ -34,21 +35,54 @@ public class FakeRconPlugin : BasePlugin
     private string? cacheFilePath;
     private System.Timers.Timer? cleanupTimer;
     private const int CACHE_CLEANUP_MINUTES = 120; // 2 hours
+    private const string CONFIG_FILE = "fake_rcon_config.json";
+    private const string CACHE_FILE = "cache.ini";
+    private string? configPath;
+    private string? cachePath;
 
-    public FileManager(string modPath)
+    private void InitializePaths()
     {
-        // Ensure paths exist
-        string configDir = Path.Combine(modPath, "configs", "plugins", "fakercon");
+        string configDir = Path.Combine(ModuleDirectory, "..", "..", "configs", "plugins", "fakercon");
         Directory.CreateDirectory(configDir);
 
         configPath = Path.Combine(configDir, CONFIG_FILE);
         cachePath = Path.Combine(configDir, CACHE_FILE);
+        cacheFilePath = cachePath;
 
         LoadCache();
     }
 
-    public string? GetRconPassword()
+    private void LoadCache()
     {
+        if (cachePath != null && File.Exists(cachePath))
+        {
+            try
+            {
+                var lines = File.ReadAllLines(cachePath);
+                foreach (var line in lines)
+                {
+                    var parts = line.Split('=');
+                    if (parts.Length == 2)
+                    {
+                        var steamId = parts[0].Trim();
+                        if (DateTime.TryParse(parts[1].Trim(), out DateTime authTime))
+                        {
+                            authenticatedUsers[steamId] = new AuthCacheEntry(steamId) { AuthTime = authTime };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading cache: {ex.Message}");
+            }
+        }
+    }
+
+    private string? GetRconPassword()
+    {
+        if (configPath == null) return null;
+
         if (!File.Exists(configPath))
         {
             var config = new { RconPassword = "changeme" };
@@ -68,14 +102,8 @@ public class FakeRconPlugin : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        // Initialize cache file path
-        cacheFilePath = Path.Combine(ModuleDirectory, "cache.ini");
-
-        // Create cache file if it doesn't exist
-        if (!File.Exists(cacheFilePath))
-        {
-            File.WriteAllText(cacheFilePath, "");
-        }
+        // Initialize paths first
+        InitializePaths();
 
         // Setup cleanup timer
         cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds); // Check every minute
@@ -83,7 +111,7 @@ public class FakeRconPlugin : BasePlugin
         cleanupTimer.AutoReset = true;
         cleanupTimer.Start();
 
-        fakeRconPassword = NativeAPI.GetCommandParamValue("-fakercon", DataType.DATA_TYPE_STRING, "unknown");
+        fakeRconPassword = GetRconPassword() ?? "unknown";
         
         if (hotReload)
         {
