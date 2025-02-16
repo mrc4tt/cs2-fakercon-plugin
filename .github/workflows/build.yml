@@ -28,12 +28,12 @@ jobs:
       - name: Get FakeRcon Version
         id: FAKERCON_VERSION
         run: |
-            FAKERCON_VERSION=$(grep -oP 'Version\s*=>\s*"\K[^"]*' FakeRcon.cs)
+            FAKERCON_VERSION=$(grep -oP 'Version\s*=>\s*"\K[^"]*' fakercon.cs)
             echo "FAKERCON_VERSION=$FAKERCON_VERSION" >> $GITHUB_ENV
 
       - name: Build and Release Artifacts
         run: |
-          CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' FakeRcon.csproj | sed 's|1.0.||g')
+          CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' fakercon.csproj | sed 's|1.0.||g')
           echo "Creating FakeRcon base package with version: $FAKERCON_VERSION"
           
           # Create directory structure
