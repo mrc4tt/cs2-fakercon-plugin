@@ -1,0 +1,106 @@
+name: Build and Release
+
+on:
+  push:
+    paths-ignore:
+        - "documentation/**"
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+        contents: write
+    name: Build and Release
+    runs-on: ubuntu-latest
+    outputs:
+        FAKERCON_VERSION: ${{ steps.FAKERCON_VERSION.outputs.FAKERCON_VERSION }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0'
+
+      - name: Get FakeRcon Version
+        id: FAKERCON_VERSION
+        run: |
+            FAKERCON_VERSION=$(grep -oP 'Version\s*=>\s*"\K[^"]*' FakeRcon.cs)
+            echo "FAKERCON_VERSION=$FAKERCON_VERSION" >> $GITHUB_ENV
+
+      - name: Build and Release Artifacts
+        run: |
+          CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' FakeRcon.csproj | sed 's|1.0.||g')
+          echo "Creating FakeRcon base package with version: $FAKERCON_VERSION"
+          dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
+          cp -r configs package 
+          cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION.zip * && cd ..
+    
+          echo "Creating package with CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION for Linux"
+          cd package/
+          echo "Installing CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION"
+          [ -e addons/counterstrikesharp ] && rm -rf addons/counterstrikesharp && echo "CounterStrikeSharp removed" || echo "old CounterStrikeSharp not found"
+          curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION |
+              grep "/counterstrikesharp-with-runtime-build-$CSSHARP_VERSION-linux" |
+              cut -d : -f 2,3 |
+              tr -d \" |
+              head -n 1 |
+              wget -O cssharp-linux.zip -qi -
+          unzip -o cssharp-linux.zip -d .
+          rm cssharp-linux.zip
+          cd ../
+
+          dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
+
+          cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION-with-cssharp-linux.zip * && cd ..
+
+          rm -r package/*
+
+          echo "Creating package with CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION for Windows"
+          cp -r cfg package
+          cd package/
+          echo "Installing CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION"
+          [ -e addons/counterstrikesharp ] && rm -rf addons/counterstrikesharp && echo "CounterStrikeSharp removed" || echo "old CounterStrikeSharp not found"
+          curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION |
+              grep "/counterstrikesharp-with-runtime-build-$CSSHARP_VERSION-windows" |
+              cut -d : -f 2,3 |
+              tr -d \" |
+              head -n 1 |
+              wget -O cssharp-windows.zip -qi -
+          unzip -o cssharp-windows.zip -d .
+          rm cssharp-windows.zip
+          cd ../
+
+          dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
+
+          cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION-with-cssharp-windows.zip * && cd ..
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: FakeRcon ${{ env.FAKERCON_VERSION }}
+          tag_name: ${{ env.FAKERCON_VERSION }}
+          body: |
+            Please see the [`CHANGELOG.md`](https://github.com/YourUsername/FakeRcon/blob/main/CHANGELOG.md) for details on changes.
+
+            Installation:
+            There are 3 files attached here:
+            1. FakeRcon-${{ env.FAKERCON_VERSION }}.zip - Contains only the FakeRcon plugin files. Extract to csgo/ directory. (Requires: Metamod and CounterStrikeSharp)
+            
+            2. FakeRcon-${{ env.FAKERCON_VERSION }}-with-cssharp-linux.zip - Contains FakeRcon and CounterStrikeSharp files for Linux. Extract to csgo/ directory.
+            
+            3. FakeRcon-${{ env.FAKERCON_VERSION }}-with-cssharp-windows.zip - Same as above, but for Windows.
+            
+            Note: Metamod is required for all installations. The with-cssharp versions are recommended for first-time installations.
+          draft: false
+          prerelease: false
+          files: |
+            FakeRcon-${{ env.FAKERCON_VERSION }}.zip
+            FakeRcon-${{ env.FAKERCON_VERSION }}-with-cssharp-linux.zip
+            FakeRcon-${{ env.FAKERCON_VERSION }}-with-cssharp-windows.zip
