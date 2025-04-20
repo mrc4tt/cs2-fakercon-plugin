@@ -55,7 +55,7 @@ jobs:
           rm -rf addons/counterstrikesharp || true
 
           CSSHARP_LINUX_URL=$(curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION | \
-            grep browser_download_url | grep "linux" | grep "with-runtime" | cut -d '"' -f 4)
+            grep "browser_download_url" | grep "linux" | grep "with-runtime" | cut -d '"' -f 4)
 
           if [[ -z "$CSSHARP_LINUX_URL" ]]; then
             echo "Failed to find Linux CSSHARP download URL for version $CSSHARP_VERSION"
@@ -84,7 +84,7 @@ jobs:
           rm -rf addons/counterstrikesharp || true
 
           CSSHARP_WINDOWS_URL=$(curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION | \
-            grep browser_download_url | grep "windows" | grep "with-runtime" | cut -d '"' -f 4)
+            grep "browser_download_url" | grep "windows" | grep "with-runtime" | cut -d '"' -f 4)
 
           if [[ -z "$CSSHARP_WINDOWS_URL" ]]; then
             echo "Failed to find Windows CSSHARP download URL for version $CSSHARP_VERSION"
