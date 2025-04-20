@@ -35,7 +35,7 @@ jobs:
         run: |
           set -e  # Exit on error
 
-          CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' fakercon.csproj | sed 's|1.0.||g')
+          CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' fakercon.csproj)
           echo "Creating FakeRcon base package with version: $FAKERCON_VERSION"
 
           # Create initial package directory structure
@@ -54,8 +54,8 @@ jobs:
 
           rm -rf addons/counterstrikesharp || true
 
-          CSSHARP_LINUX_URL=$(curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION | \
-            grep "browser_download_url" | grep "linux" | grep "with-runtime" | cut -d '"' -f 4)
+          CSSHARP_LINUX_URL=$(curl -s "https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION" | \
+            jq -r --arg ver "1.0.$CSSHARP_VERSION" '.assets[] | select(.name == "counterstrikesharp-with-runtime-linux-" + $ver + ".zip") | .browser_download_url')
 
           if [[ -z "$CSSHARP_LINUX_URL" ]]; then
             echo "Failed to find Linux CSSHARP download URL for version $CSSHARP_VERSION"
@@ -83,8 +83,8 @@ jobs:
 
           rm -rf addons/counterstrikesharp || true
 
-          CSSHARP_WINDOWS_URL=$(curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION | \
-            grep "browser_download_url" | grep "windows" | grep "with-runtime" | cut -d '"' -f 4)
+          CSSHARP_WINDOWS_URL=$(curl -s "https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION" | \
+            jq -r --arg ver "1.0.$CSSHARP_VERSION" '.assets[] | select(.name == "counterstrikesharp-with-runtime-windows-" + $ver + ".zip") | .browser_download_url')
 
           if [[ -z "$CSSHARP_WINDOWS_URL" ]]; then
             echo "Failed to find Windows CSSHARP download URL for version $CSSHARP_VERSION"
