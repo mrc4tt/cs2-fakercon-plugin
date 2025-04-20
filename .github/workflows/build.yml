@@ -31,51 +31,91 @@ jobs:
             FAKERCON_VERSION=$(grep -oP 'Version\s*=>\s*"\K[^"]*' fakercon.cs)
             echo "FAKERCON_VERSION=$FAKERCON_VERSION" >> $GITHUB_ENV
 
+name: Build and Release
+
+on:
+  push:
+    paths-ignore:
+      - "documentation/**"
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    name: Build and Release
+    runs-on: ubuntu-latest
+    outputs:
+      FAKERCON_VERSION: ${{ steps.FAKERCON_VERSION.outputs.FAKERCON_VERSION }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0'
+
+      - name: Get FakeRcon Version
+        id: FAKERCON_VERSION
+        run: |
+          FAKERCON_VERSION=$(grep -oP 'Version\s*=>\s*"\K[^"]*' fakercon.cs)
+          echo "FAKERCON_VERSION=$FAKERCON_VERSION" >> $GITHUB_ENV
+          echo "::set-output name=FAKERCON_VERSION::$FAKERCON_VERSION"
+
       - name: Build and Release Artifacts
         run: |
-          set -e  # Exit on error
+          set -e
 
           CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' fakercon.csproj)
+          echo "Using CounterStrikeSharp version: $CSSHARP_VERSION"
           echo "Creating FakeRcon base package with version: $FAKERCON_VERSION"
 
-          # Create initial package directory structure
           mkdir -p package/addons/counterstrikesharp/plugins/FakeRcon
           mkdir -p package/addons/counterstrikesharp/configs/plugins/fakercon
-          
+
           dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
           cp -r configs/plugins/fakercon/* package/addons/counterstrikesharp/configs/plugins/fakercon/
-          
+
           cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION.zip * && cd ..
 
-          echo "Creating package with CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION for Linux"
-
+          # -------- LINUX PACKAGE --------
+          echo "Creating Linux package for CSSharp $CSSHARP_VERSION"
           cd package/
-          echo "Installing CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION"
-
           rm -rf addons/counterstrikesharp || true
 
-          CSSHARP_LINUX_URL=$(curl -s "https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION" | \
-            jq -r --arg ver "1.0.$CSSHARP_VERSION" '.assets[] | select(.name == "counterstrikesharp-with-runtime-linux-" + $ver + ".zip") | .browser_download_url')
+          CSSHARP_LINUX_URL=$(curl -s "https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION" \
+            | jq -r '.assets[] | select(.name | test("counterstrikesharp-with-runtime-linux.*\\.zip$")) | .browser_download_url')
 
           if [[ -z "$CSSHARP_LINUX_URL" ]]; then
-            echo "Failed to find Linux CSSHARP download URL for version $CSSHARP_VERSION"
+            echo "❌ Failed to find Linux CSSHARP download URL for version $CSSHARP_VERSION"
             exit 1
           fi
 
           echo "Downloading $CSSHARP_LINUX_URL"
-          wget -q -O cssharp-linux.zip "$CSSHARP_LINUX_URL"
+          wget --header="Accept: application/octet-stream" --user-agent="Mozilla/5.0" -O cssharp-linux.zip "$CSSHARP_LINUX_URL"
+
+          if [[ ! -s cssharp-linux.zip ]]; then
+            echo "❌ Downloaded cssharp-linux.zip is empty or missing"
+            exit 1
+          fi
+
           unzip -q -o cssharp-linux.zip -d .
           rm cssharp-linux.zip
           cd ..
 
+          mkdir -p package/addons/counterstrikesharp/plugins/FakeRcon
+          mkdir -p package/addons/counterstrikesharp/configs/plugins/fakercon
           dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
           cp -r configs/plugins/fakercon/* package/addons/counterstrikesharp/configs/plugins/fakercon/
-          cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION-with-cssharp-linux.zip * && cd ..
 
+          cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION-with-cssharp-linux.zip * && cd ..
           rm -rf package/*
 
-          echo "Creating package with CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION for Windows"
-
+          # -------- WINDOWS PACKAGE --------
+          echo "Creating Windows package for CSSharp $CSSHARP_VERSION"
           mkdir -p package/addons/counterstrikesharp/plugins/FakeRcon
           mkdir -p package/addons/counterstrikesharp/configs/plugins/fakercon
           cp -r configs/plugins/fakercon/* package/addons/counterstrikesharp/configs/plugins/fakercon/
@@ -83,16 +123,22 @@ jobs:
 
           rm -rf addons/counterstrikesharp || true
 
-          CSSHARP_WINDOWS_URL=$(curl -s "https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION" | \
-            jq -r --arg ver "1.0.$CSSHARP_VERSION" '.assets[] | select(.name == "counterstrikesharp-with-runtime-windows-" + $ver + ".zip") | .browser_download_url')
+          CSSHARP_WINDOWS_URL=$(curl -s "https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION" \
+            | jq -r '.assets[] | select(.name | test("counterstrikesharp-with-runtime-windows.*\\.zip$")) | .browser_download_url')
 
           if [[ -z "$CSSHARP_WINDOWS_URL" ]]; then
-            echo "Failed to find Windows CSSHARP download URL for version $CSSHARP_VERSION"
+            echo "❌ Failed to find Windows CSSHARP download URL for version $CSSHARP_VERSION"
             exit 1
           fi
 
           echo "Downloading $CSSHARP_WINDOWS_URL"
-          wget -q -O cssharp-windows.zip "$CSSHARP_WINDOWS_URL"
+          wget --header="Accept: application/octet-stream" --user-agent="Mozilla/5.0" -O cssharp-windows.zip "$CSSHARP_WINDOWS_URL"
+
+          if [[ ! -s cssharp-windows.zip ]]; then
+            echo "❌ Downloaded cssharp-windows.zip is empty or missing"
+            exit 1
+          fi
+
           unzip -q -o cssharp-windows.zip -d .
           rm cssharp-windows.zip
           cd ..
