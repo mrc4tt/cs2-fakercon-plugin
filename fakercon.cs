@@ -35,7 +35,7 @@ public class FakeRconPlugin : BasePlugin
     private string? cacheFilePath;
     private System.Timers.Timer? cleanupTimer;
     private const int CACHE_CLEANUP_MINUTES = 120; // 2 hours
-    private const string CONFIG_FILE = "fake_rcon_config.json";
+    private const string CONFIG_FILE = "fakercon.json";
     private const string CACHE_FILE = "cache.ini";
     private string? configPath;
     private string? cachePath;
@@ -105,14 +105,20 @@ public class FakeRconPlugin : BasePlugin
         // Initialize paths first
         InitializePaths();
 
+        // Get password from -fakercon, fallback to JSON config if missing
+        fakeRconPassword = NativeAPI.GetCommandParamValue<string>("-fakercon", DataType.DATA_TYPE_STRING, null);
+
+        if (string.IsNullOrEmpty(fakeRconPassword))
+        {
+            fakeRconPassword = GetRconPassword() ?? "unknown";
+        }
+
         // Setup cleanup timer
         cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(1).TotalMilliseconds); // Check every minute
         cleanupTimer.Elapsed += OnCleanupTimer;
         cleanupTimer.AutoReset = true;
         cleanupTimer.Start();
 
-        fakeRconPassword = GetRconPassword() ?? "unknown";
-        
         if (hotReload)
         {
             LoadAuthCache();

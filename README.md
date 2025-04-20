@@ -24,7 +24,7 @@ fake_rcon is a CS2 server plugin that implements RCON (Remote Console) functiona
 
 1. Download the latest release from the [releases page](https://github.com/mrc4tt/cs2-fakercon-plugin/releases)
 2. Extract the contents to your CS2 server's `csgo` directory
-3. Configure the plugin using the config file at `configs/plugins/fakercon/fake_rcon_config.json`
+3. Configure the plugin using the config file at `configs/plugins/fakercon/fakercon.json`
 
 ## Configuration
 
