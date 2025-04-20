@@ -33,69 +33,71 @@ jobs:
 
       - name: Build and Release Artifacts
         run: |
+          set -e  # Exit on error
+
           CSSHARP_VERSION=$(grep -Po '<PackageReference Include="CounterStrikeSharp.API" Version="\K\d+(\.\d+)*' fakercon.csproj | sed 's|1.0.||g')
           echo "Creating FakeRcon base package with version: $FAKERCON_VERSION"
-          
-          # Create directory structure
+
+          # Create initial package directory structure
           mkdir -p package/addons/counterstrikesharp/plugins/FakeRcon
           mkdir -p package/addons/counterstrikesharp/configs/plugins/fakercon
           
-          # Build and copy plugin
           dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
-          
-          # Copy configs
           cp -r configs/plugins/fakercon/* package/addons/counterstrikesharp/configs/plugins/fakercon/
           
-          # Create base package
           cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION.zip * && cd ..
-    
+
           echo "Creating package with CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION for Linux"
+
           cd package/
           echo "Installing CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION"
-          [ -e addons/counterstrikesharp ] && rm -rf addons/counterstrikesharp && echo "CounterStrikeSharp removed" || echo "old CounterStrikeSharp not found"
-          curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION |
-              grep "/counterstrikesharp-with-runtime-build-$CSSHARP_VERSION-linux" |
-              cut -d : -f 2,3 |
-              tr -d \" |
-              head -n 1 |
-              wget -O cssharp-linux.zip -qi -
-          unzip -o cssharp-linux.zip -d .
-          rm cssharp-linux.zip
-          cd ../
 
-          # Rebuild for Linux package
-          mkdir -p package/addons/counterstrikesharp/plugins/FakeRcon
-          mkdir -p package/addons/counterstrikesharp/configs/plugins/fakercon
+          rm -rf addons/counterstrikesharp || true
+
+          CSSHARP_LINUX_URL=$(curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION | \
+            grep browser_download_url | grep "linux" | grep "with-runtime" | cut -d '"' -f 4)
+
+          if [[ -z "$CSSHARP_LINUX_URL" ]]; then
+            echo "Failed to find Linux CSSHARP download URL for version $CSSHARP_VERSION"
+            exit 1
+          fi
+
+          echo "Downloading $CSSHARP_LINUX_URL"
+          wget -q -O cssharp-linux.zip "$CSSHARP_LINUX_URL"
+          unzip -q -o cssharp-linux.zip -d .
+          rm cssharp-linux.zip
+          cd ..
+
           dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
           cp -r configs/plugins/fakercon/* package/addons/counterstrikesharp/configs/plugins/fakercon/
-
           cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION-with-cssharp-linux.zip * && cd ..
 
-          rm -r package/*
+          rm -rf package/*
 
           echo "Creating package with CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION for Windows"
-          # Rebuild directory structure for Windows
+
           mkdir -p package/addons/counterstrikesharp/plugins/FakeRcon
           mkdir -p package/addons/counterstrikesharp/configs/plugins/fakercon
-          
-          # Copy configs for Windows
           cp -r configs/plugins/fakercon/* package/addons/counterstrikesharp/configs/plugins/fakercon/
-          
           cd package/
-          echo "Installing CounterStrikeSharp (CSSharp) v$CSSHARP_VERSION"
-          [ -e addons/counterstrikesharp ] && rm -rf addons/counterstrikesharp && echo "CounterStrikeSharp removed" || echo "old CounterStrikeSharp not found"
-          curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION |
-              grep "/counterstrikesharp-with-runtime-build-$CSSHARP_VERSION-windows" |
-              cut -d : -f 2,3 |
-              tr -d \" |
-              head -n 1 |
-              wget -O cssharp-windows.zip -qi -
-          unzip -o cssharp-windows.zip -d .
+
+          rm -rf addons/counterstrikesharp || true
+
+          CSSHARP_WINDOWS_URL=$(curl -s https://api.github.com/repos/roflmuffin/CounterStrikeSharp/releases/tags/v$CSSHARP_VERSION | \
+            grep browser_download_url | grep "windows" | grep "with-runtime" | cut -d '"' -f 4)
+
+          if [[ -z "$CSSHARP_WINDOWS_URL" ]]; then
+            echo "Failed to find Windows CSSHARP download URL for version $CSSHARP_VERSION"
+            exit 1
+          fi
+
+          echo "Downloading $CSSHARP_WINDOWS_URL"
+          wget -q -O cssharp-windows.zip "$CSSHARP_WINDOWS_URL"
+          unzip -q -o cssharp-windows.zip -d .
           rm cssharp-windows.zip
-          cd ../
+          cd ..
 
           dotnet publish -o package/addons/counterstrikesharp/plugins/FakeRcon
-
           cd package && zip -q -r ../FakeRcon-$FAKERCON_VERSION-with-cssharp-windows.zip * && cd ..
 
       - name: Create Release
