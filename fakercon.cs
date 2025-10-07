@@ -22,13 +22,12 @@ public class AuthCacheEntry
     }
 }
 
-[MinimumApiVersion(300)]
 public class FakeRconPlugin : BasePlugin
 {
     public override string ModuleName => "Fake RCON";
     public override string ModuleVersion => "1.2.2";
     public override string ModuleAuthor => "Kriax (Original - MetaMod Plugin) / Converted by Miksen";
-    public override string ModuleDescription => "Like the real RCON but it's not the real RCON, thank you Valve";
+    public override string ModuleDescription => "Like the real RCON, but it's not the real RCON, thank you Valve";
 
     private Dictionary<string, AuthCacheEntry> authenticatedUsers = new();
     private string? fakeRconPassword;
